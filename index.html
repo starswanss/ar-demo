@@ -145,15 +145,17 @@
   <div id="arContainer">
   <!--
     filterMinCF / filterBeta คือค่าของ OneEuroFilter ที่ MindAR ใช้หน่วงการสั่น
-    ค่าเริ่มต้นของ MindAR คือ filterMinCF: 0.001 ซึ่งกรองหนักมากจนรู้สึกหน่วง
-    ปรับขึ้นเป็น 0.005 เพื่อให้ตอบสนองไวขึ้น
+    ใช้ค่าเริ่มต้นของ MindAR (0.001 / 1000) เพราะทดสอบแล้วว่าการเพิ่ม filterMinCF
+    ทำให้โมเดลสั่นตลอดเวลา
+      โมเดลสั่นยิบๆ -> ลด filterMinCF (เช่น 0.0005)
+      โมเดลตามช้า  -> เพิ่ม filterBeta (เช่น 2000) ก่อน อย่าเพิ่ม filterMinCF
+                      เพราะ beta ลดความหน่วงตอนขยับโดยไม่เพิ่มการสั่นตอนอยู่นิ่ง
 
-    ถ้ายังหน่วงอยู่  -> เพิ่ม filterMinCF (เช่น 0.01)
-    ถ้าโมเดลสั่นยิบๆ -> ลด filterMinCF กลับลงมา
-    สองค่านี้แลกกันเสมอ ปรับทีละนิดแล้วลองบนเครื่องจริง
+    missTolerance: 10 (เดิม 5) = จำนวนเฟรมที่หา target ไม่เจอติดกันก่อนจะถือว่าหลุด
+    เพิ่มขึ้นเพื่อให้ทนต่อการบังหรือมุมกล้องต่ำชั่วขณะได้ดีขึ้น
   -->
   <a-scene
-    mindar-image="imageTargetSrc: ./assets/targets.mind; autoStart: false; uiScanning: no; uiLoading: no; filterMinCF: 0.005; filterBeta: 1000;"
+    mindar-image="imageTargetSrc: ./assets/targets.mind; autoStart: false; uiScanning: no; uiLoading: no; filterMinCF: 0.001; filterBeta: 1000; missTolerance: 10;"
     renderer="colorManagement: true; physicallyCorrectLights: true"
     vr-mode-ui="enabled: false"
     device-orientation-permission-ui="enabled: false"
@@ -208,6 +210,61 @@
       startBtn.textContent = 'ลองอีกครั้ง';
     };
 
+    /*
+      ---- คงโมเดลไว้เมื่อ target หลุดจากเฟรม ----
+
+      ปกติ MindAR จะซ่อนโมเดลทันทีที่หาภาพไม่เจอ โดยเมธอด updateWorldMatrix
+      ของ component "mindar-image-target" ทำแบบนี้:
+          this.el.object3D.visible = worldMatrix !== null;
+          if (worldMatrix === null) { this.el.object3D.matrix = this.invisibleMatrix; return; }
+
+      เราแทนที่เมธอดนี้ให้จำท่าล่าสุดไว้ แล้วตอนหาไม่เจอก็ค้างโมเดลไว้ที่ท่านั้น
+      แทนการซ่อน ผู้ใช้จึงยังเห็นอาคารอยู่แม้ก้มกล้องต่ำจนภาพหลุดเฟรม
+      พอเล็งกลับไปเจอภาพอีกครั้ง ระบบจะกลับไปติดตามตามปกติเอง
+
+      ข้อจำกัดที่ต้องเข้าใจ: MindAR ตรึงกล้องไว้ที่จุดกำเนิดแล้วขยับโมเดลแทน
+      ช่วงที่ค้างไว้ โมเดลจึงติดอยู่กับ "หน้าจอ" ไม่ใช่ติดอยู่กับโต๊ะ ขยับมือถือ
+      แล้วโมเดลจะขยับตามไปด้วย การเดินดูรอบๆ ของจริงต้องใช้ world tracking
+      (ARCore/ARKit) ซึ่ง MindAR ไม่มี
+
+      หมายเหตุ: นี่คือการแทนที่เมธอดภายในของ MindAR 1.2.5 ถ้าอัปเกรดเวอร์ชัน
+      ต้องตรวจสอบก่อนว่า updateWorldMatrix ยังทำงานแบบเดิมอยู่หรือไม่
+    */
+    const targetProto = AFRAME.components['mindar-image-target'].Component.prototype;
+
+    targetProto.updateWorldMatrix = function (worldMatrix) {
+      this.el.emit('targetUpdate');
+
+      if (worldMatrix !== null) {
+        const m = new AFRAME.THREE.Matrix4();
+        m.elements = worldMatrix;
+        m.multiply(this.postMatrix);
+        this.el.object3D.matrix = m;
+        this.el.object3D.visible = true;
+        this.lastKnownMatrix = m.clone();
+        if (!this.isTracking) {
+          this.isTracking = true;
+          this.el.emit('targetFound');
+        }
+        return;
+      }
+
+      if (this.isTracking) {
+        this.isTracking = false;
+        this.el.emit('targetLost');
+      }
+
+      if (this.lastKnownMatrix) {
+        // เคยสแกนเจอแล้ว -> ค้างไว้ที่ท่าล่าสุด
+        this.el.object3D.visible = true;
+        this.el.object3D.matrix = this.lastKnownMatrix;
+      } else {
+        // ยังไม่เคยเจอเลย -> ซ่อนตามเดิม
+        this.el.object3D.visible = false;
+        this.el.object3D.matrix = this.invisibleMatrix;
+      }
+    };
+
     // MindAR ลงทะเบียน system ไว้ในชื่อ "mindar-image-system"
     // (ส่วน "mindar-image" คือชื่อ component ที่ใส่ไว้บน <a-scene>)
     // และ start() ต้องเรียกหลัง renderstart เท่านั้น เพราะข้างในอ้างถึง sceneEl.parentNode
@@ -246,13 +303,21 @@
       if (renderStarted) startAR();
     });
 
+    // เคยสแกนเจอแล้วหรือยัง ใช้แยกข้อความว่า "ยังหาไม่เจอ" กับ "ตรึงไว้ชั่วคราว"
+    let hasScannedOnce = false;
+
     targetEntity.addEventListener('targetFound', () => {
+      hasScannedOnce = true;
       hint.style.display = 'none';
+      foundBadge.textContent = 'กำลังติดตามภาพ ✓';
       foundBadge.style.display = 'block';
     });
 
     targetEntity.addEventListener('targetLost', () => {
       foundBadge.style.display = 'none';
+      hint.textContent = hasScannedOnce
+        ? 'ตรึงโมเดลไว้ชั่วคราว — เล็งกลับไปที่ภาพเพื่อติดตามต่อ'
+        : 'กำลังมองหาภาพบนกระดาษ...';
       hint.style.display = 'block';
     });
   </script>
