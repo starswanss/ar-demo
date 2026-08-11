@@ -92,6 +92,17 @@
 
     #startBtn:active { transform: scale(0.97); }
 
+    #version {
+      position: absolute;
+      bottom: 16px;
+      left: 0;
+      right: 0;
+      text-align: center;
+      font-size: 11px;
+      color: #5a6572;
+      letter-spacing: 0.5px;
+    }
+
     #hint {
       position: fixed;
       bottom: 28px;
@@ -133,6 +144,8 @@
       โมเดล 3D จะปรากฏขึ้นมาบนกระดาษโดยอัตโนมัติ
     </p>
     <button id="startBtn">เปิดกล้อง</button>
+    <!-- ป้ายเวอร์ชัน ใช้ยืนยันว่าเครื่องโหลดไฟล์ใหม่แล้วจริง ไม่ได้ติดแคชเก่า -->
+    <div id="version">assets v3</div>
   </div>
 
   <div id="hint">กำลังมองหาภาพบนกระดาษ...</div>
@@ -155,14 +168,19 @@
     เพิ่มขึ้นเพื่อให้ทนต่อการบังหรือมุมกล้องต่ำชั่วขณะได้ดีขึ้น
   -->
   <a-scene
-    mindar-image="imageTargetSrc: ./assets/targets.mind; autoStart: false; uiScanning: no; uiLoading: no; filterMinCF: 0.001; filterBeta: 1000; missTolerance: 10;"
+    mindar-image="imageTargetSrc: ./assets/targets.mind?v=3; autoStart: false; uiScanning: no; uiLoading: no; filterMinCF: 0.001; filterBeta: 1000; missTolerance: 10;"
     renderer="colorManagement: true; physicallyCorrectLights: true"
     vr-mode-ui="enabled: false"
     device-orientation-permission-ui="enabled: false"
   >
     <a-assets>
-      <!-- เปลี่ยนเป็นไฟล์โมเดลของคุณเอง เช่น ./assets/model.glb -->
-      <a-asset-item id="model" src="./assets/model.glb"></a-asset-item>
+      <!--
+        ?v=3 คือตัวกันแคช GitHub Pages ส่งหัว Cache-Control: max-age=600
+        มือถือจึงเก็บไฟล์เดิมไว้ 10 นาที ถ้าเปลี่ยนไฟล์ใน assets/ แล้วเครื่องยัง
+        เห็นของเก่า ให้บวกเลข v ขึ้น 1 ทั้งที่นี่และที่ imageTargetSrc ด้านบน
+        แล้ว push ใหม่ เครื่องจะถูกบังคับให้โหลดของใหม่ทันที
+      -->
+      <a-asset-item id="model" src="./assets/model.glb?v=3"></a-asset-item>
     </a-assets>
 
     <a-camera position="0 0 0" look-controls="enabled: false" cursor="fuse: false; rayOrigin: mouse;"></a-camera>
