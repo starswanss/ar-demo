@@ -18,8 +18,26 @@
       width: 100%;
       height: 100%;
       overflow: hidden;
-      background: #000;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    /*
+      สำคัญ: ใส่พื้นหลังดำที่ <html> เท่านั้น ห้ามใส่ที่ <body>
+      MindAR แทรก <video> เป็นลูกของ body ด้วย z-index: -2 ตามลำดับการวาดของ CSS
+      พื้นหลังของ html จะถูกวาดเป็นพื้นหลังของ canvas (ล่างสุด) แต่พื้นหลังของ body
+      เป็นกล่องปกติที่วาด "ทับ" ชั้น z-index ติดลบ — ถ้าใส่ที่ body ภาพกล้องจะโดนบังจนจอดำ
+    */
+    html {
+      background: #000;
+    }
+
+    #arContainer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
     }
 
     a-scene {
@@ -116,6 +134,11 @@
   <div id="hint">กำลังมองหาภาพบนกระดาษ...</div>
   <div id="foundBadge">พบภาพแล้ว ✓</div>
 
+  <!--
+    MindAR แทรก <video> เข้าไปใน parentNode ของ <a-scene> และใช้ขนาดของกล่องนี้
+    คำนวณการครอปภาพกล้อง จึงต้องมี div ครอบที่กำหนดขนาดชัดเจนและพื้นหลังโปร่งใส
+  -->
+  <div id="arContainer">
   <a-scene
     mindar-image="imageTargetSrc: ./assets/targets.mind; autoStart: false; uiScanning: no; uiLoading: no;"
     renderer="colorManagement: true; physicallyCorrectLights: true"
@@ -140,6 +163,7 @@
       ></a-gltf-model>
     </a-entity>
   </a-scene>
+  </div>
 
   <script>
     const startScreen = document.getElementById('startScreen');
