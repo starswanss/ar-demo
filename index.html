@@ -92,6 +92,60 @@
 
     #startBtn:active { transform: scale(0.97); }
 
+    /*
+      หน้าจอรอระหว่างเตรียมระบบ AR
+      ช่วงนี้ MindAR ต้องโหลด targets.mind แล้วให้ TensorFlow.js ประมวลผล
+      จุดสังเกตทั้งหมด ใช้เวลาหลายวินาที และระหว่างนั้น _resize() ยังไม่ทำงาน
+      วิดีโอจึงยังไม่มีขนาด CSS ทำให้เห็นเป็นจอดำ ต้องมีหน้าจอนี้บังไว้
+      ไม่งั้นผู้ใช้จะเข้าใจว่าแอปพัง
+    */
+    #loading {
+      position: fixed;
+      inset: 0;
+      z-index: 30;
+      background: linear-gradient(160deg, #101418 0%, #1c2530 100%);
+      color: #f4f4f4;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 32px;
+      box-sizing: border-box;
+    }
+
+    #spinner {
+      width: 42px;
+      height: 42px;
+      border: 3px solid rgba(255,255,255,0.15);
+      border-top-color: #3b82f6;
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+      margin-bottom: 22px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #loading .title {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    #loading .sub {
+      font-size: 13px;
+      line-height: 1.6;
+      color: #8e99a6;
+      max-width: 280px;
+    }
+
+    #loading .elapsed {
+      margin-top: 18px;
+      font-size: 12px;
+      color: #5a6572;
+      font-variant-numeric: tabular-nums;
+    }
+
     #version {
       position: absolute;
       bottom: 16px;
@@ -145,7 +199,15 @@
     </p>
     <button id="startBtn">เปิดกล้อง</button>
     <!-- ป้ายเวอร์ชัน ใช้ยืนยันว่าเครื่องโหลดไฟล์ใหม่แล้วจริง ไม่ได้ติดแคชเก่า -->
-    <div id="version">assets v3</div>
+    <div id="version">assets v3 · build 4</div>
+  </div>
+
+  <div id="loading">
+    <div id="spinner"></div>
+    <div class="title">กำลังเตรียมระบบ AR...</div>
+    <div class="sub">ครั้งแรกอาจใช้เวลาสักครู่ กรุณาอย่าเพิ่งปิดหน้านี้</div>
+    <!-- ตัวนับวินาที ใช้แยกว่า "ช้า" กับ "ค้างจริง" ต่างกันตรงไหน -->
+    <div class="elapsed" id="elapsed"></div>
   </div>
 
   <div id="hint">กำลังมองหาภาพบนกระดาษ...</div>
@@ -221,8 +283,12 @@
     const sceneEl = document.querySelector('a-scene');
     const targetEntity = document.getElementById('targetEntity');
 
+    const loading = document.getElementById('loading');
+
     const showError = (msg) => {
+      clearInterval(elapsedTimer);
       startScreen.style.display = 'flex';
+      loading.style.display = 'none';
       hint.style.display = 'none';
       startScreen.querySelector('p').textContent = msg;
       startBtn.textContent = 'ลองอีกครั้ง';
@@ -313,12 +379,40 @@
       showError('เปิดกล้องไม่สำเร็จ กรุณาอนุญาตสิทธิ์กล้อง และเปิดหน้านี้ผ่าน HTTPS');
     });
 
+    // MindAR ยิง arReady บน scene เมื่อเตรียมระบบเสร็จและปรับขนาดวิดีโอแล้ว
+    // ก่อนหน้านั้นวิดีโอยังไม่มีขนาด CSS จอจึงดำ ต้องบังด้วยหน้าจอรอไว้
+    let arReady = false;
+    let elapsedTimer = null;
+
+    sceneEl.addEventListener('arReady', () => {
+      arReady = true;
+      clearInterval(elapsedTimer);
+      loading.style.display = 'none';
+      hint.style.display = 'block';
+    });
+
     startBtn.addEventListener('click', () => {
       startScreen.style.display = 'none';
-      hint.style.display = 'block';
+      hint.style.display = 'none';
+      loading.style.display = 'flex';
       startRequested = true;
+
+      const t0 = Date.now();
+      const elapsed = document.getElementById('elapsed');
+      clearInterval(elapsedTimer);
+      elapsedTimer = setInterval(() => {
+        elapsed.textContent = Math.round((Date.now() - t0) / 1000) + ' วินาที';
+      }, 250);
+
       // ถ้า scene พร้อมแล้วเริ่มเลย ถ้ายังไม่พร้อมจะถูกเรียกตอน renderstart
       if (renderStarted) startAR();
+
+      // กันกรณีค้างจริง ถ้าเกิน 45 วินาทีแล้วยังไม่พร้อมถือว่ามีปัญหา
+      setTimeout(() => {
+        if (!arReady) {
+          showError('เตรียมระบบ AR ไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่');
+        }
+      }, 45000);
     });
 
     // เคยสแกนเจอแล้วหรือยัง ใช้แยกข้อความว่า "ยังหาไม่เจอ" กับ "ตรึงไว้ชั่วคราว"
