@@ -143,8 +143,17 @@
     คำนวณการครอปภาพกล้อง จึงต้องมี div ครอบที่กำหนดขนาดชัดเจนและพื้นหลังโปร่งใส
   -->
   <div id="arContainer">
+  <!--
+    filterMinCF / filterBeta คือค่าของ OneEuroFilter ที่ MindAR ใช้หน่วงการสั่น
+    ค่าเริ่มต้นของ MindAR คือ filterMinCF: 0.001 ซึ่งกรองหนักมากจนรู้สึกหน่วง
+    ปรับขึ้นเป็น 0.005 เพื่อให้ตอบสนองไวขึ้น
+
+    ถ้ายังหน่วงอยู่  -> เพิ่ม filterMinCF (เช่น 0.01)
+    ถ้าโมเดลสั่นยิบๆ -> ลด filterMinCF กลับลงมา
+    สองค่านี้แลกกันเสมอ ปรับทีละนิดแล้วลองบนเครื่องจริง
+  -->
   <a-scene
-    mindar-image="imageTargetSrc: ./assets/targets.mind; autoStart: false; uiScanning: no; uiLoading: no;"
+    mindar-image="imageTargetSrc: ./assets/targets.mind; autoStart: false; uiScanning: no; uiLoading: no; filterMinCF: 0.005; filterBeta: 1000;"
     renderer="colorManagement: true; physicallyCorrectLights: true"
     vr-mode-ui="enabled: false"
     device-orientation-permission-ui="enabled: false"
@@ -162,17 +171,22 @@
         ระนาบ target ของ MindAR กว้าง 1 หน่วยพอดี (สูงตามสัดส่วนภาพ)
         โดยมีจุดกึ่งกลางภาพอยู่ที่ 0,0,0 และแกน +Z ชี้พุ่งออกจากกระดาษ
 
-        ขนาดจริงของ model.glb ที่วัดจากไฟล์: X=5956.5  Y=1326.6  Z=1029.5
-        จุดกึ่งกลาง: (3054.57, 300.84, 514.76) และฐานอยู่ที่ Z=0 (โมเดลเป็นแบบ Z-up)
+        ขนาดจริงของ model.glb ที่ถอดรหัสจาก vertex โดยตรง (ไม่ใช่ค่า min/max
+        ที่เขียนกำกับไว้ในไฟล์ ซึ่ง ImageToStl.com เขียนสลับแกนไว้ผิด):
+          min (76.33, 0, -964.14)   max (6032.80, 1029.53, 362.45)
+          ขนาด X=5956.47  Y=1029.53  Z=1326.58
+        โมเดลเป็นแบบ Y-up ฐานอยู่ที่ Y=0
 
-        scale  0.000134 = 0.8 / 5956.5  ทำให้ด้านยาวของอาคารกินพื้นที่ 80% ของความกว้างภาพ
-        position ชดเชยให้อาคารมาอยู่กึ่งกลางภาพ = -(จุดกึ่งกลาง XY x scale)
-                 ส่วนแกน Z ปล่อยเป็น 0 เพื่อให้ฐานอาคารวางแนบอยู่บนกระดาษพอดี
+        rotation 90 0 0  หมุนแกนขึ้นของโมเดล (+Y) ให้ไปตรงกับ +Z ที่พุ่งออกจาก
+                 กระดาษ ไม่งั้นอาคารจะนอนหงายและจมลงไปหลังกระดาษ
+        scale    0.000168 = 1.0 / 5956.47  ให้อาคารกว้างเท่าความกว้างภาพพอดี
+        position ชดเชยให้อาคารมาอยู่กึ่งกลาง = -(จุดกึ่งกลางหลังหมุน x scale)
+                 แกน Z ปล่อยเป็น 0 เพราะหลังหมุนแล้วฐานอาคารอยู่ที่ Z=0 พอดี
       -->
       <a-gltf-model
-        rotation="0 0 0"
-        position="-0.4093 -0.0403 0"
-        scale="0.000134 0.000134 0.000134"
+        rotation="90 0 0"
+        position="-0.5132 -0.0505 0"
+        scale="0.000168 0.000168 0.000168"
         src="#model"
       ></a-gltf-model>
     </a-entity>
