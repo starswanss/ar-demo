@@ -156,30 +156,42 @@
       startBtn.textContent = 'ลองอีกครั้ง';
     };
 
+    // MindAR ลงทะเบียน system ไว้ในชื่อ "mindar-image-system"
+    // (ส่วน "mindar-image" คือชื่อ component ที่ใส่ไว้บน <a-scene>)
+    // และ start() ต้องเรียกหลัง renderstart เท่านั้น เพราะข้างในอ้างถึง sceneEl.parentNode
+    let renderStarted = false;
+    let startRequested = false;
+
+    const startAR = () => {
+      const arSystem = sceneEl.systems['mindar-image-system'];
+      if (!arSystem) {
+        showError('โหลดระบบ AR ไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่');
+        return;
+      }
+      try {
+        arSystem.start(); // เปิดกล้องและเริ่มสแกนหาเป้าหมาย
+      } catch (e) {
+        console.error(e);
+        showError('เปิดกล้องไม่สำเร็จ กรุณาอนุญาตสิทธิ์กล้อง และเปิดหน้านี้ผ่าน HTTPS');
+      }
+    };
+
+    sceneEl.addEventListener('renderstart', () => {
+      renderStarted = true;
+      if (startRequested) startAR();
+    });
+
+    // MindAR แจ้ง error ของกล้องผ่าน event นี้ ไม่ใช่การ throw
+    sceneEl.addEventListener('arError', () => {
+      showError('เปิดกล้องไม่สำเร็จ กรุณาอนุญาตสิทธิ์กล้อง และเปิดหน้านี้ผ่าน HTTPS');
+    });
+
     startBtn.addEventListener('click', () => {
       startScreen.style.display = 'none';
       hint.style.display = 'block';
-
-      let tries = 0;
-      const start = async () => {
-        const arSystem = sceneEl.systems['mindar-image'];
-        if (!arSystem) {
-          // ระบบยังโหลดไม่เสร็จ ลองใหม่อีกครั้ง (สูงสุดประมาณ 10 วินาที)
-          if (++tries > 50) {
-            showError('โหลดระบบ AR ไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่');
-            return;
-          }
-          setTimeout(start, 200);
-          return;
-        }
-        try {
-          await arSystem.start(); // เปิดกล้องและเริ่มสแกนหาเป้าหมาย
-        } catch (e) {
-          console.error(e);
-          showError('เปิดกล้องไม่สำเร็จ กรุณาอนุญาตสิทธิ์กล้อง และเปิดหน้านี้ผ่าน HTTPS');
-        }
-      };
-      start();
+      startRequested = true;
+      // ถ้า scene พร้อมแล้วเริ่มเลย ถ้ายังไม่พร้อมจะถูกเรียกตอน renderstart
+      if (renderStarted) startAR();
     });
 
     targetEntity.addEventListener('targetFound', () => {
