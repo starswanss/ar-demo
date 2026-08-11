@@ -15,6 +15,34 @@
     <script src="https://cdn.jsdelivr.net/npm/aframe-extras@7.5.4/dist/aframe-extras.min.js"></script>
   -->
 
+  <script>
+    /*
+      ปรับค่าลดการสั่นจาก URL ได้ทันที ไม่ต้องแก้โค้ดแล้ว push ใหม่ เช่น
+        ...ar-demo/?minCF=0.00005
+        ...ar-demo/?minCF=0.0002&beta=8000
+      ค่าที่ใช้อยู่จริงจะแสดงที่มุมล่างของหน้าจอเริ่มต้น
+
+      ต้องอยู่ใน <head> หลังสคริปต์ MindAR เพราะต้องแทนที่เมธอด setup ให้เสร็จ
+      ก่อนที่ component "mindar-image" จะ init แล้วเรียก setup ของ system
+    */
+    (function () {
+      var q = new URLSearchParams(location.search);
+      var proto = AFRAME.systems['mindar-image-system'].prototype;
+      var orig = proto.setup;
+
+      proto.setup = function (opts) {
+        if (q.has('minCF')) opts.filterMinCF = parseFloat(q.get('minCF'));
+        if (q.has('beta')) opts.filterBeta = parseFloat(q.get('beta'));
+
+        var label = document.getElementById('version');
+        if (label) {
+          label.textContent = 'build 5 · minCF ' + opts.filterMinCF + ' · beta ' + opts.filterBeta;
+        }
+        return orig.call(this, opts);
+      };
+    })();
+  </script>
+
   <style>
     html, body {
       margin: 0;
@@ -199,7 +227,7 @@
     </p>
     <button id="startBtn">เปิดกล้อง</button>
     <!-- ป้ายเวอร์ชัน ใช้ยืนยันว่าเครื่องโหลดไฟล์ใหม่แล้วจริง ไม่ได้ติดแคชเก่า -->
-    <div id="version">assets v3 · build 4</div>
+    <div id="version">build 5</div>
   </div>
 
   <div id="loading">
@@ -220,17 +248,23 @@
   <div id="arContainer">
   <!--
     filterMinCF / filterBeta คือค่าของ OneEuroFilter ที่ MindAR ใช้หน่วงการสั่น
-    ใช้ค่าเริ่มต้นของ MindAR (0.001 / 1000) เพราะทดสอบแล้วว่าการเพิ่ม filterMinCF
-    ทำให้โมเดลสั่นตลอดเวลา
-      โมเดลสั่นยิบๆ -> ลด filterMinCF (เช่น 0.0005)
-      โมเดลตามช้า  -> เพิ่ม filterBeta (เช่น 2000) ก่อน อย่าเพิ่ม filterMinCF
-                      เพราะ beta ลดความหน่วงตอนขยับโดยไม่เพิ่มการสั่นตอนอยู่นิ่ง
+    ค่าเริ่มต้นของ MindAR คือ 0.001 / 1000
+
+    วิธีจูนตามที่ผู้คิด OneEuroFilter แนะนำ ทำตามลำดับนี้:
+      1. ลด filterMinCF จนกว่าโมเดลจะนิ่งตอนถือกล้องอยู่กับที่
+         (ยิ่งน้อยยิ่งนิ่ง แต่จะเริ่มตามมือช้าลง)
+      2. แล้วค่อยเพิ่ม filterBeta จนกว่าจะตามทันตอนขยับกล้อง
+         (beta ลดความหน่วงเฉพาะตอนเคลื่อนไหว ไม่ทำให้สั่นตอนอยู่นิ่ง)
+    ห้ามเพิ่ม filterMinCF เพื่อแก้อาการตามช้า เพราะจะกลับไปสั่นเหมือนเดิม
+
+    ตอนนี้ใช้ 0.0001 / 5000 = ลด minCF ลง 10 เท่าเพื่อแก้อาการสั่น แล้วเพิ่ม
+    beta ขึ้น 5 เท่าชดเชยความหน่วง ลองค่าอื่นได้ทาง URL เช่น ?minCF=0.00005
 
     missTolerance: 10 (เดิม 5) = จำนวนเฟรมที่หา target ไม่เจอติดกันก่อนจะถือว่าหลุด
     เพิ่มขึ้นเพื่อให้ทนต่อการบังหรือมุมกล้องต่ำชั่วขณะได้ดีขึ้น
   -->
   <a-scene
-    mindar-image="imageTargetSrc: ./assets/targets.mind?v=3; autoStart: false; uiScanning: no; uiLoading: no; filterMinCF: 0.001; filterBeta: 1000; missTolerance: 10;"
+    mindar-image="imageTargetSrc: ./assets/targets.mind?v=3; autoStart: false; uiScanning: no; uiLoading: no; filterMinCF: 0.0001; filterBeta: 5000; missTolerance: 10;"
     renderer="colorManagement: true; physicallyCorrectLights: true"
     vr-mode-ui="enabled: false"
     device-orientation-permission-ui="enabled: false"
@@ -261,14 +295,18 @@
 
         rotation 90 0 0  หมุนแกนขึ้นของโมเดล (+Y) ให้ไปตรงกับ +Z ที่พุ่งออกจาก
                  กระดาษ ไม่งั้นอาคารจะนอนหงายและจมลงไปหลังกระดาษ
-        scale    0.000168 = 1.0 / 5956.47  ให้อาคารกว้างเท่าความกว้างภาพพอดี
+        scale    0.000336 = 2.0 / 5956.47  อาคารกว้างเป็น 2 เท่าของความกว้างภาพ
+                 (ล้นออกนอกขอบกระดาษด้านข้างข้างละครึ่งหนึ่งของความกว้างภาพ)
         position ชดเชยให้อาคารมาอยู่กึ่งกลาง = -(จุดกึ่งกลางหลังหมุน x scale)
                  แกน Z ปล่อยเป็น 0 เพราะหลังหมุนแล้วฐานอาคารอยู่ที่ Z=0 พอดี
+
+        ผลลัพธ์: X กิน -1.0007 ถึง 1.0007, Y กิน -0.2229 ถึง 0.2228,
+                 สูงพ้นกระดาษ 0.3459  (กระดาษกิน X -0.5..0.5, Y -0.7072..0.7072)
       -->
       <a-gltf-model
         rotation="90 0 0"
-        position="-0.5132 -0.0505 0"
-        scale="0.000168 0.000168 0.000168"
+        position="-1.0263 -0.1011 0"
+        scale="0.000336 0.000336 0.000336"
         src="#model"
       ></a-gltf-model>
     </a-entity>
