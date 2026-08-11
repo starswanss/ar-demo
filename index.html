@@ -8,8 +8,12 @@
   <!-- A-Frame + MindAR (image tracking) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
-  <!-- aframe-extras: ให้ animation-mixer เล่นแอนิเมชันที่ฝังมากับไฟล์ .glb ได้ -->
-  <script src="https://cdn.jsdelivr.net/npm/aframe-extras@7.5.4/dist/aframe-extras.min.js"></script>
+  <!--
+    model.glb ไฟล์ปัจจุบันไม่มีแอนิเมชัน (animations: 0) จึงไม่ต้องโหลด aframe-extras
+    ซึ่งหนักถึง ~1.7 MB ถ้าวันหลังเปลี่ยนไปใช้โมเดลที่มีแอนิเมชัน ให้เปิดบรรทัดล่างนี้
+    แล้วใส่ attribute animation-mixer กลับเข้าไปที่ <a-gltf-model>
+    <script src="https://cdn.jsdelivr.net/npm/aframe-extras@7.5.4/dist/aframe-extras.min.js"></script>
+  -->
 
   <style>
     html, body {
@@ -154,12 +158,22 @@
 
     <!-- target 0 = ภาพเป้าหมายลำดับแรกในไฟล์ targets.mind -->
     <a-entity mindar-image-target="targetIndex: 0" id="targetEntity">
+      <!--
+        ระนาบ target ของ MindAR กว้าง 1 หน่วยพอดี (สูงตามสัดส่วนภาพ)
+        โดยมีจุดกึ่งกลางภาพอยู่ที่ 0,0,0 และแกน +Z ชี้พุ่งออกจากกระดาษ
+
+        ขนาดจริงของ model.glb ที่วัดจากไฟล์: X=5956.5  Y=1326.6  Z=1029.5
+        จุดกึ่งกลาง: (3054.57, 300.84, 514.76) และฐานอยู่ที่ Z=0 (โมเดลเป็นแบบ Z-up)
+
+        scale  0.000134 = 0.8 / 5956.5  ทำให้ด้านยาวของอาคารกินพื้นที่ 80% ของความกว้างภาพ
+        position ชดเชยให้อาคารมาอยู่กึ่งกลางภาพ = -(จุดกึ่งกลาง XY x scale)
+                 ส่วนแกน Z ปล่อยเป็น 0 เพื่อให้ฐานอาคารวางแนบอยู่บนกระดาษพอดี
+      -->
       <a-gltf-model
         rotation="0 0 0"
-        position="0 0 0"
-        scale="0.05 0.05 0.05"
+        position="-0.4093 -0.0403 0"
+        scale="0.000134 0.000134 0.000134"
         src="#model"
-        animation-mixer
       ></a-gltf-model>
     </a-entity>
   </a-scene>
