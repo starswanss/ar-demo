@@ -319,7 +319,8 @@
     const hint = document.getElementById('hint');
     const foundBadge = document.getElementById('foundBadge');
     const sceneEl = document.querySelector('a-scene');
-    const targetEntity = document.getElementById('targetEntity');
+    // ทุกภาพเป้าหมายในหน้านี้ (มีกี่อันก็ได้ ดูวิธีเพิ่มใน README)
+    const targetEntities = document.querySelectorAll('[mindar-image-target]');
 
     const loading = document.getElementById('loading');
 
@@ -453,22 +454,40 @@
       }, 45000);
     });
 
-    // เคยสแกนเจอแล้วหรือยัง ใช้แยกข้อความว่า "ยังหาไม่เจอ" กับ "ตรึงไว้ชั่วคราว"
+    // ---- สถานะ UI ----
+    // ผูก listener ให้ทุก entity ที่มี mindar-image-target อัตโนมัติ
+    // เพิ่มภาพเป้าหมายใหม่ในหน้า HTML ได้เลยโดยไม่ต้องแก้สคริปต์ส่วนนี้
     let hasScannedOnce = false;
+    let activeCount = 0;
 
-    targetEntity.addEventListener('targetFound', () => {
-      hasScannedOnce = true;
-      hint.style.display = 'none';
-      foundBadge.textContent = 'กำลังติดตามภาพ ✓';
-      foundBadge.style.display = 'block';
-    });
+    const updateBadge = () => {
+      foundBadge.textContent = activeCount > 1
+        ? 'กำลังติดตาม ' + activeCount + ' ภาพ ✓'
+        : 'กำลังติดตามภาพ ✓';
+    };
 
-    targetEntity.addEventListener('targetLost', () => {
-      foundBadge.style.display = 'none';
-      hint.textContent = hasScannedOnce
-        ? 'ตรึงโมเดลไว้ชั่วคราว — เล็งกลับไปที่ภาพเพื่อติดตามต่อ'
-        : 'กำลังมองหาภาพบนกระดาษ...';
-      hint.style.display = 'block';
+    targetEntities.forEach((el) => {
+      el.addEventListener('targetFound', () => {
+        hasScannedOnce = true;
+        activeCount++;
+        hint.style.display = 'none';
+        updateBadge();
+        foundBadge.style.display = 'block';
+      });
+
+      el.addEventListener('targetLost', () => {
+        activeCount = Math.max(0, activeCount - 1);
+        if (activeCount > 0) {
+          // ยังมีภาพอื่นที่ติดตามอยู่ ไม่ต้องเปลี่ยนกลับเป็นโหมดค้นหา
+          updateBadge();
+          return;
+        }
+        foundBadge.style.display = 'none';
+        hint.textContent = hasScannedOnce
+          ? 'ตรึงโมเดลไว้ชั่วคราว — เล็งกลับไปที่ภาพเพื่อติดตามต่อ'
+          : 'กำลังมองหาภาพบนกระดาษ...';
+        hint.style.display = 'block';
+      });
     });
   </script>
 </body>
